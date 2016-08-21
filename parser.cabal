@@ -1,14 +1,12 @@
 name:                parser
-version:             0.1.0.0
-synopsis:            Simple project template from stack
-description:         Please see README.md
-homepage:            https://github.com/githubuser/parser#readme
-license:             BSD3
+version:             0.1
+synopsis:            parsing
+description:         A simple Parser combinator library written in Haskell
+homepage:            https://github.com/tholzschuh/parser
+license:             BEERWARE
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2016 Author name here
-category:            Web
+author:              Tim Holzschuh
+maintainer:          TimHolzschuh@gmx.de        
 build-type:          Simple
 cabal-version:       >=1.10
 
