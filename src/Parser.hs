@@ -1,7 +1,7 @@
 module Parser where
 
-import Control.Applicative
-import Control.Monad
+import Control.Applicative hiding (many)
+import Data.Char (isDigit, isLower, isUpper)
 
 type Error = String
 type ParseRes a = Either Error a
@@ -29,36 +29,18 @@ instance Applicative Parser where
     (Left err, str) -> (Left err, str)
     (Right f, str)  -> case xx str of
       (Left err', str') -> (Left err', str')
-      (Right x, str') -> (Right (f x), str')
+      (Right x, str')   -> (Right (f x), str')
 
 instance Alternative Parser where
-  -- empty :: Parser a
   empty = Parser $ \inp -> (Left "empty", inp)
 
-  --(<|>) :: Parser a -> Parser a -> Parser a
-  (Parser xx) <|> (Parser yy) = Parser $ \inp -> case xx inp of
+  (<|>) (Parser xx) (Parser yy) = Parser $ \inp -> case xx inp of
     (Right x, str)  -> (Right x, str)
-    (Left err, str)   -> case yy inp of
+    (Left err, _)   -> case yy inp of
       (Right y, str')   -> (Right y, str')
-      (Left err', str') -> (Left err', inp)
+      (Left err', _)    -> (Left err', inp)
 
-  --many :: Parser a -> Parser [a]
-  many (Parser f) = Parser loop
-    where
-      loop = \inp -> case f inp of
-        (Left err, _) -> (Right [], inp)
-        (Right x, str)  -> case loop str of
-          (Left err', str') -> (Right [x], str)
-          (Right x', str')  -> (Right (x:x'), str')
 
-  --some :: Parser a -> Parser [a]
-  some (Parser f) = Parser loop
-    where
-      loop = \inp -> case f inp of
-        (Left err, str) -> (Left err, inp)
-        (Right x, str)  -> case loop str of
-          (Left err', str') -> (Right [x], str)
-          (Right x', str')  -> (Right (x:x'), str')
 
 -- monadic parsing interface
 instance Monad Parser where
@@ -75,8 +57,8 @@ zero = Parser $ \inp -> (Left "zero", inp)
 -- generall purpose functions
 satisfy :: (Char -> Bool) -> Parser Char
 satisfy p = Parser $ \inp -> case inp of
-  []                 -> (Left "empty string", [])
-  inp@(x:xs) | p x       -> (Right x, xs)
+  []                     -> (Left "empty string", [])
+  (x:xs) | p x       -> (Right x, xs)
          | otherwise -> (Left "did not satisfy", inp)
 
 try :: Parser a -> Parser a
@@ -84,7 +66,23 @@ try (Parser p) = Parser $ \inp -> case p inp of
   (Left err, _)  -> (Left err, inp)
   (Right x, str) -> (Right x, str)
 
+--many :: Parser a -> Parser [a]
+--many (Parser f) = Parser loop
+--    where
+--      loop = \inp -> case f inp of
+--        (Left _, _)     -> (Right [], inp)
+--        (Right x, str)  -> case loop str of
+--          (Left _, _)       -> (Right [x], str)
+--          (Right x', str')  -> (Right (x:x'), str')
 
+--some :: Parser a -> Parser [a]
+--some (Parser f) = Parser loop
+--    where
+--      loop = \inp -> case f inp of
+--        (Left err, _)   -> (Left err, inp)
+--        (Right x, str)  -> case loop str of
+--         (Left _, _)       -> (Right [x], str)
+--          (Right x', str')  -> (Right (x:x'), str')
 
 choice :: [Parser a] -> Parser a
 choice ps = foldr (<|>) zero ps
@@ -96,13 +94,13 @@ oneOf :: [Char] -> Parser Char
 oneOf cs = choice (char <$> cs)
 
 digit :: Parser Char
-digit = satisfy (\x -> x >= '0' && x <= '9')
+digit = satisfy isDigit
 
 lower :: Parser Char
-lower = satisfy (\x -> x >= 'a' && x <= 'z')
+lower = satisfy isLower
 
 upper :: Parser Char
-upper = satisfy (\x -> x >= 'A' && x <= 'Z')
+upper = satisfy isUpper
 
 letter :: Parser Char
 letter = lower <|> upper
