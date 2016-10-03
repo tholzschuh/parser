@@ -1,6 +1,7 @@
 module Json where
 
 import Data.List (intercalate)
+import Control.Applicative
 import Parser
 
 type Identifier = String
@@ -27,6 +28,14 @@ render (JArray arr) = "[" ++ showArr arr ++ "]"
   where showArr [] = ""
         showArr xs = intercalate ", " (map render xs)
 
+jsonParser :: Parser JValue
+jsonParser =  jsonString
+           <|> jsonNumber
+           <|> jsonBool
+           <|> jsonNull
+           <|> jsonObject
+           <|> jsonArray
+
 jsonString :: Parser JValue
 jsonString = do
   char '"'
@@ -41,15 +50,27 @@ jsonNumber = do
   post <- many digit
   return (JNumber (read (pre ++ "." ++ post)))
 
-jsonBool = jsonTrue <|> jsonFalse
-  where jsonTrue = do
-          string "true"
-          return (JBool True)
-        jsonFalse = do
-          string "false"
-          return (JBool False)  
+jsonBool :: Parser JValue
+jsonBool = fmap JBool ((string "true" >> return True) <|> (string "false" >> return False))
 
 jsonNull :: Parser JValue
-jsonNull = do
-  str <- string "null"
+jsonNull = string "null" >> return JNull
+
+jsonObject :: Parser JValue
+jsonObject = do
+  char '{'
+  tuple
+  char '}'
   return JNull
+
+tuple :: Parser (Identifier, JValue)
+tuple = do
+  char '('
+  ident <- many (satisfy (/= ','))
+  char ','
+  value <- many (satisfy (/= ','))
+  char ')'
+  return (ident, JNull)
+
+jsonArray :: Parser JValue
+jsonArray = undefined
