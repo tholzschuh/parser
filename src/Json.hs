@@ -38,29 +38,33 @@ jsonParser =  jsonString
 
 jsonString :: Parser JValue
 jsonString = do
-  char '"'
-  str <- many (satisfy (\c -> c /= '\"'))
-  char '"'
+  try (char '"')
+  str <- many $ try (satisfy (/= '\"'))
+  try (char '"')
   return (JString str)
 
 jsonNumber :: Parser JValue
 jsonNumber = do
   pre  <- many digit
-  char '.'
+  try (char '.')
   post <- many digit
-  return (JNumber (read (pre ++ "." ++ post)))
+  if null pre
+    then return (JNull)
+    else if null post
+      then return (JNumber $ read pre)
+      else return (JNumber $ read (pre ++ "." ++ post))
 
 jsonBool :: Parser JValue
-jsonBool = fmap JBool ((string "true" >> return True) <|> (string "false" >> return False))
+jsonBool = fmap JBool (try $ (string "true" >> return True) <|> (string "false" >> return False))
 
 jsonNull :: Parser JValue
-jsonNull = string "null" >> return JNull
+jsonNull = try (string "null") >> return JNull
 
 jsonObject :: Parser JValue
 jsonObject = do
-  char '{'
-  tuple
-  char '}'
+  try (char '{')
+  try tuple
+  try (char '}')
   return JNull
 
 tuple :: Parser (Identifier, JValue)
