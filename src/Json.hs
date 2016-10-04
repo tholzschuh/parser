@@ -28,53 +28,70 @@ render (JArray arr) = "[" ++ showArr arr ++ "]"
   where showArr [] = ""
         showArr xs = intercalate ", " (map render xs)
 
+json = jsonParser
+
 jsonParser :: Parser JValue
-jsonParser =  jsonString
-           <|> jsonNumber
-           <|> jsonBool
-           <|> jsonNull
-           <|> jsonObject
-           <|> jsonArray
+jsonParser =  space >>
+          (jsonString
+          <|> jsonNumber
+          <|> jsonBool
+          <|> jsonNull
+          <|> jsonObject
+          <|> jsonArray)
+
 
 jsonString :: Parser JValue
-jsonString = do
-  try (char '"')
-  str <- many $ try (satisfy (/= '\"'))
-  try (char '"')
-  return (JString str)
+jsonString = JString <$> (try $ between open close p)
+  where open  = (char '"') <?> "expected \'\"\'"
+        close = open
+        p     = many (satisfy (/= '"'))
 
 jsonNumber :: Parser JValue
-jsonNumber = do
-  pre  <- many digit
-  try (char '.')
-  post <- many digit
-  if null pre
-    then return (JNull)
-    else if null post
-      then return (JNumber $ read pre)
-      else return (JNumber $ read (pre ++ "." ++ post))
+jsonNumber = double <|> integer
+  where
+    double = do
+      pre  <- some digit
+      char '.'
+      post <- some digit
+      return (JNumber (read (pre ++ "." ++ post)))
+    integer = do
+      num <- some digit
+      return (JNumber (read num))
+
 
 jsonBool :: Parser JValue
-jsonBool = fmap JBool (try $ (string "true" >> return True) <|> (string "false" >> return False))
+jsonBool = JBool <$> (try $ (string "true" >> return True) <|> (string "false" >> return False))
 
 jsonNull :: Parser JValue
-jsonNull = try (string "null") >> return JNull
+jsonNull = try $ string "null" >> return JNull
 
 jsonObject :: Parser JValue
-jsonObject = do
-  try (char '{')
-  try tuple
-  try (char '}')
-  return JNull
+jsonObject = between open close p
+  where open  = (char '{' <?> "expected \'{\'") >> space
+        close = space >> (char '}' <?> "expected \'}'\'")
+        p = do
+          content <- parseObject
+          return (JObject content)
 
-tuple :: Parser (Identifier, JValue)
-tuple = do
-  char '('
-  ident <- many (satisfy (/= ','))
-  char ','
-  value <- many (satisfy (/= ','))
-  char ')'
-  return (ident, JNull)
+        parseObject = do
+          obj  <- parseSingle
+          rest <- many (space >> (char ',') >> space >> parseSingle)
+          return (obj:rest)
+
+        parseSingle = do
+          (JString ident) <- jsonString
+          space >> char ':' <?> "expected \':\'"
+          value           <- jsonParser
+          return (ident, value)
 
 jsonArray :: Parser JValue
-jsonArray = undefined
+jsonArray = between open close p
+  where open  = (char '[' <?> "expected \'[\'") >> space
+        close = space >> (char ']' <?> "expected \']\'")
+        p = do
+          elements <- parseArray
+          return (JArray elements)
+        parseArray = do
+          start <- jsonParser
+          rest  <- many (space >> (char ',') >> jsonParser)
+          return (start:rest)

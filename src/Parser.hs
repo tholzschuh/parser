@@ -1,7 +1,7 @@
 module Parser where
 
-import Control.Applicative hiding (many)
-import Data.Char (isDigit, isLower, isUpper)
+import Control.Applicative
+import Data.Char (isDigit, isLower, isUpper, isSpace)
 
 type Error = String
 type ParseRes = Either Error
@@ -89,6 +89,11 @@ option x p = Parser $ \inp -> case parse p inp of
                       then (Right x, inp)
                       else (Left err, str)
 
+skipMany :: Parser a -> Parser ()
+skipMany p = Parser $ \inp -> case parse p inp of
+  (Left _, str) -> (Right (), str)
+  (_, str)      -> parse (skipMany p) str
+
 choice :: [Parser a] -> Parser a
 choice ps = foldr (<|>) empty ps
 
@@ -112,6 +117,9 @@ letter = lower <|> upper
 
 alphanum :: Parser Char
 alphanum = letter <|> digit
+
+space :: Parser ()
+space = skipMany (satisfy isSpace)
 
 string :: String -> Parser String
 string [] = pure []
